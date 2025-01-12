@@ -3,6 +3,7 @@
 #include <linux/ip.h>
 #include <linux/in.h>
 #include <linux/udp.h>
+#include <linux/tcp.h>
 #include <bpf/bpf_helpers.h>
 #include <arpa/inet.h> // For htonl and htons
 
@@ -12,6 +13,8 @@
 #define FIVEM_SERVER_IP     0x7F000001      // 127.0.0.1
 #define FIVEM_SERVER_PORT   30120           // Replace with the port number of your FiveM server
 #define MUMBLE_SERVER_PORT  30121           // Replace with the port number of your Mumble/PMA server
+#define HTTP_SERVER_PORT    80              // Replace with the port number of your HTTP server (Nginx)
+#define HTTPS_SERVER_PORT   443             // Replace with the port number of your HTTPS server (Nginx)
 #define RATE_LIMIT          13000           // Maximum number of packets allowed per second
 
 struct {
@@ -62,20 +65,28 @@ int fivem_xdp(struct xdp_md *ctx) {
         return XDP_ABORTED;
     }
 
-    // Check if packet is UDP
-    if (ip->protocol != IPPROTO_UDP) {
-        return XDP_PASS;  // Allow non-UDP packets
-    }
+    if (ip->protocol == IPPROTO_UDP) {
+        // Parse UDP header
+        struct udphdr *udp = data + sizeof(struct ethhdr) + (ip->ihl * 4);
+        if ((void *)(udp + 1) > data_end) {
+            return XDP_ABORTED;
+        }
 
-    // Parse UDP header
-    struct udphdr *udp = data + sizeof(struct ethhdr) + (ip->ihl * 4);
-    if ((void *)(udp + 1) > data_end) {
-        return XDP_ABORTED;
-    }
+        // Check if packet is destined for the FiveM server IP and port
+        if (ip->daddr != htonl(FIVEM_SERVER_IP) || (udp->dest != htons(FIVEM_SERVER_PORT) && udp->dest != htons(MUMBLE_SERVER_PORT))) {
+            return XDP_PASS;  // Allow other UDP traffic
+        }
+    } else if (ip->protocol == IPPROTO_TCP) {
+        // Parse TCP header
+        struct tcphdr *tcp = data + sizeof(struct ethhdr) + (ip->ihl * 4);
+        if ((void *)(tcp + 1) > data_end) {
+            return XDP_ABORTED;
+        }
 
-    // Check if packet is destined for the FiveM server IP and port
-    if (ip->daddr != htonl(FIVEM_SERVER_IP) || (udp->dest != htons(FIVEM_SERVER_PORT) && udp->dest != htons(MUMBLE_SERVER_PORT))) {
-        return XDP_PASS;  // Allow other UDP traffic
+        // Check if packet is destined for the FiveM/Nginx server IP and port
+        if (ip->daddr != htonl(FIVEM_SERVER_IP) || (tcp->dest != htons(FIVEM_SERVER_PORT) && tcp->dest != htons(MUMBLE_SERVER_PORT) && tcp->dest != htons(HTTP_SERVER_PORT) && tcp->dest != htons(HTTPS_SERVER_PORT))) {
+            return XDP_PASS;  // Allow other TCP traffic
+        }
     }
 
     // Check the rate limit map
