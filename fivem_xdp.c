@@ -6,6 +6,9 @@
 #include <bpf/bpf_helpers.h>
 #include <arpa/inet.h> // For htonl and htons
 
+#define htons(x) ((__be16)___constant_swab16((x)))
+#define htonl(x) ((__be32)___constant_swab32((x)))
+
 #define FIVEM_SERVER_IP     0x7F000001      // 127.0.0.1
 #define FIVEM_SERVER_PORT   30120           // Replace with the port number of your FiveM server
 #define MUMBLE_SERVER_PORT  30121           // Replace with the port number of your Mumble/PMA server
