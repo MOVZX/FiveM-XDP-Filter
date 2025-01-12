@@ -8,6 +8,7 @@
 
 #define FIVEM_SERVER_IP     0x7F000001      // 127.0.0.1
 #define FIVEM_SERVER_PORT   30120           // Replace with the port number of your FiveM server
+#define MUMBLE_SERVER_PORT  30121           // Replace with the port number of your Mumble/PMA server
 #define RATE_LIMIT          13000           // Maximum number of packets allowed per second
 
 struct {
@@ -70,7 +71,7 @@ int fivem_xdp(struct xdp_md *ctx) {
     }
 
     // Check if packet is destined for the FiveM server IP and port
-    if (ip->daddr != htonl(FIVEM_SERVER_IP) || udp->dest != htons(FIVEM_SERVER_PORT)) {
+    if (ip->daddr != htonl(FIVEM_SERVER_IP) || (udp->dest != htons(FIVEM_SERVER_PORT) && udp->dest != htons(MUMBLE_SERVER_PORT))) {
         return XDP_PASS;  // Allow other UDP traffic
     }
 
