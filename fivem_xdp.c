@@ -93,6 +93,10 @@ int fivem_xdp(struct xdp_md *ctx)
         if ((void *)(tcp + 1) > data_end)
             return XDP_ABORTED;
 
+        // Drop SYN Flood
+        if (tcp->syn == 1 && tcp->ack == 0)
+            return XDP_DROP;
+
         // Check if packet is destined for the FiveM/Mumble/PMA/Nginx server IP and port
         if
         (
